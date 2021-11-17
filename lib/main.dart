@@ -379,12 +379,12 @@ class _MyHomePageState extends State<MyHomePage>
             height: 5,
           ),
           Text("Join the gang on our amazing trip!",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           SizedBox(
             height: 5,
           ),
-          Text("Enjoy the ride a let your fellow hapes be part of your score.",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text("Enjoy the ride a share your score with your fellow hapes.",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           SizedBox(
             height: 15,
           ),
