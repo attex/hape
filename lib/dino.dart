@@ -93,7 +93,7 @@ class Dino extends GameObject {
   void jump() {
     if (state != DinoState.jumping) {
       state = DinoState.jumping;
-      velY = 750;
+      velY = 850;
     }
   }
 

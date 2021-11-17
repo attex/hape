@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart';
@@ -7,6 +8,8 @@ import 'package:dino_game/plane.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'cactus.dart';
@@ -51,6 +54,7 @@ class _MyHomePageState extends State<MyHomePage>
   Dino dino = Dino();
   double runDistance = 0;
   double runVelocity = 50;
+  int highscore = 0;
 
   AnimationController worldController;
   Duration lastUpdateCall = Duration();
@@ -82,10 +86,24 @@ class _MyHomePageState extends State<MyHomePage>
   AudioPlayer audioPlayer = AudioPlayer();
   @override
   void initState() {
+    SharedPreferences.setMockInitialValues({});
     super.initState();
     worldController =
         AnimationController(vsync: this, duration: Duration(days: 99));
     worldController.addListener(_update);
+    loadHighscore();
+  }
+
+  Future loadHighscore() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    highscore = prefs.getInt('highscore') ?? 0;
+  }
+
+  Future saveHighscore(int score) async {
+    if(score < highscore) return;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    highscore = score;
+    prefs.setInt('highscore', score);
   }
 
   Future<Uint8List> getAssetData() async {
@@ -93,13 +111,36 @@ class _MyHomePageState extends State<MyHomePage>
     return asset.buffer.asUint8List();
   }
 
-  void _play() async {
-    Uint8List bytes = await getAssetData();
-     _playAudio(bytes) ;
+  Future<String> _loadFile() async {
+    String path = "";
+    final bytes = await getAssetData();
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File('${dir.path}/audio.mp3');
+
+    await file.writeAsBytes(bytes);
+    if (file.existsSync()) {
+      return file.path;
+    } else {
+      return path;
+    }
   }
 
-  void _playAudio(bytes) async { 
+  void _play() async {
+    if (Platform.isIOS) {
+      String path = await _loadFile();
+      _playiOSAudio(path);
+    } else {
+      Uint8List bytes = await getAssetData();
+      _playAndroidAudio(bytes);
+    }
+  }
+
+  void _playAndroidAudio(bytes) async {
     await audioPlayer.playBytes(bytes);
+  }
+
+  void _playiOSAudio(path) async {
+    await audioPlayer.play(path, isLocal: true, volume: 0.3);
   }
 
   void _die() {
@@ -160,6 +201,7 @@ class _MyHomePageState extends State<MyHomePage>
       Rect obstacleRect = cactus.getRect(screenSize, runDistance);
       if (dinoRect.overlaps(obstacleRect)) {
         _die();
+        saveHighscore(runDistance.toInt());
       }
 
       if (obstacleRect.right < 0) {
@@ -249,40 +291,58 @@ class _MyHomePageState extends State<MyHomePage>
           }));
     }
 
+    children.add(AnimatedBuilder(
+        animation: worldController,
+        builder: (context, _) {
+          return Positioned(
+            left: 10,
+            top: 10,
+            width: 300,
+            height: 40,
+            child: Text(
+              "HI ${highscore.toString().padLeft(6, '0')} ${runDistance.toInt().toString().padLeft(6, '0')}",
+              style: TextStyle(
+                fontFamily: 'Raleway',
+              ),
+            ),
+          );
+        }));
+
     return Scaffold(
         appBar: AppBar(
           backgroundColor: Colors.black,
           title: Text(widget.title),
           actions: [TextButton(onPressed: _launch, child: Text("JOIN"))],
         ),
-        body: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: () {
-              dino.jump();
-            },
-            child: Column(
-              children: [
-                Flexible(
-                  flex: 3,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: children,
-                  ),
-                ),
-                Flexible(
-                    flex: 2,
-                    child: Container(
-                      child: dino.isDead()
-                          ? _restartWidget()
-                          : dino.isReady()
-                              ? _startWidget()
-                              : _runningWidget(),
-                    ))
-              ],
-            )));
+        body: SafeArea(
+            child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () {
+                  dino.jump();
+                },
+                child: Column(
+                  children: [
+                    Flexible(
+                      flex: 3,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: children,
+                      ),
+                    ),
+                    Flexible(
+                        flex: 2,
+                        child: Container(
+                          child: dino.isDead()
+                              ? _restartWidget(runDistance)
+                              : dino.isReady()
+                                  ? _startWidget()
+                                  : _runningWidget(),
+                        ))
+                  ],
+                ))));
   }
 
-  void _launch() async{
+  void _launch() async {
     String _url = "http://www.hapebeast.com";
     await canLaunch(_url) ? await launch(_url) : throw 'Could not launch $_url';
   }
@@ -293,10 +353,13 @@ class _MyHomePageState extends State<MyHomePage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          SizedBox(height:25),
           Text(
             "Tap to jump",
             style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
           ),
+          Spacer(),
+          _presented()
         ],
       ),
     );
@@ -309,18 +372,18 @@ class _MyHomePageState extends State<MyHomePage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "Welcome Hape ...",
+            "Step into the game fellow HAPE!",
             style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
           ),
           SizedBox(
             height: 5,
           ),
-          Text("Your mission today:",
+          Text("Join the gang on our amazing trip!",
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           SizedBox(
             height: 5,
           ),
-          Text("Help attex and magischermalakini become OG's",
+          Text("Enjoy the ride a let your fellow hapes be part of your score.",
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           SizedBox(
             height: 15,
@@ -333,28 +396,41 @@ class _MyHomePageState extends State<MyHomePage>
                         MaterialStateProperty.all<Color>(Colors.black),
                   ),
                   onPressed: _start,
-                  child: Text("Let's Go!",
+                  child: Text("Ride along HAPES!",
                       style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white))))
+                          color: Colors.white)))),
+          Spacer(),
+          _presented()
         ],
       ),
     );
   }
 
-  Widget _restartWidget() {
+  Widget _restartWidget(distance) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          SizedBox(
+            height: 10,
+          ),
+          runDistance > highscore
+              ? Text("New Highscore!",
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))
+              : Text(""),
           Text(
-            "Mission failed!",
+            "${runDistance.toInt().toString().padLeft(6, '0')}",
             style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
           ),
           SizedBox(
-            height: 5,
+            height: 15,
+          ),
+          Text(
+            "Back on the road HAPE. You can do it!",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           SizedBox(
             height: 15,
@@ -367,13 +443,23 @@ class _MyHomePageState extends State<MyHomePage>
                         MaterialStateProperty.all<Color>(Colors.black),
                   ),
                   onPressed: _restart,
-                  child: Text("Try again!",
+                  child: Text("HAPE again!",
                       style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white))))
+                          color: Colors.white)))),
+          Spacer(),
+          _presented()
         ],
       ),
     );
+  }
+
+  Widget _presented() {
+    return Center(
+        child: Text(
+      "proudly presented by attex and magischermalakini",
+      style: TextStyle(color: Colors.grey),
+    ));
   }
 }

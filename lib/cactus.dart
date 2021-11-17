@@ -31,7 +31,7 @@ class Cactus extends GameObject {
   @override
   Rect getRect(Size screenSize, double runDistance) {
     return Rect.fromLTWH(
-      (worldLocation.dx - runDistance) * WORLD_TO_PIXEL_RATIO,
+      (worldLocation.dx - runDistance) * WORLD_TO_PIXEL_RATIO / 1.3,
       screenSize.height / 2 - sprite.imageHeight,
       sprite.imageWidth.toDouble(),
       sprite.imageHeight.toDouble(),
