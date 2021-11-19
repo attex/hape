@@ -84,6 +84,9 @@ class _MyHomePageState extends State<MyHomePage>
   Uint8List bamData;
 
   AudioPlayer audioPlayer = AudioPlayer();
+  AudioCache musicCache;
+  AudioPlayer instance;
+
   @override
   void initState() {
     SharedPreferences.setMockInitialValues({});
@@ -136,11 +139,19 @@ class _MyHomePageState extends State<MyHomePage>
   }
 
   void _playAndroidAudio(bytes) async {
-    await audioPlayer.playBytes(bytes);
+    musicCache = AudioCache(prefix: "assets/music/");
+    instance = await musicCache.loop("music.mp3");
+
+    //await audioPlayer.playBytes(bytes);
+    //_play();
   }
 
   void _playiOSAudio(path) async {
-    await audioPlayer.play(path, isLocal: true, volume: 0.3);
+
+    musicCache = AudioCache(prefix: "assets/music/");
+    instance = await musicCache.loop("music.mp3", volume: 0.3);
+    //await audioPlayer.play(path, isLocal: true, volume: 0.3);
+    //_play();
   }
 
   void _die() {
@@ -429,7 +440,7 @@ class _MyHomePageState extends State<MyHomePage>
             height: 15,
           ),
           Text(
-            "Back on the road HAPE. You can do it!",
+            "Back on the road, HAPE. You can do it!",
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           SizedBox(
